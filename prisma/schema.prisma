@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id        String     @id @default(cuid())
+  name      String
+  age       Int
+  phone     String
+  photoUrl  String?
+  notes     String?
+  createdAt String
+  medicines Medicine[]
+  doseLogs  DoseLog[]
+
+  @@map("patients")
+}
+
+model Medicine {
+  id               String    @id @default(cuid())
+  patientId        String
+  patient          Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  name             String
+  photoUrl         String?
+  dose             String
+  tabletsCount     String
+  time             String
+  frequency        String
+  foodTiming       String
+  status           String    @default("Pending")
+  takenAt          String?
+  reminderCount    Int       @default(0)
+  lastReminderTime String?
+  notes            String?
+  startDate        String?
+  endDate          String?
+  doseLogs         DoseLog[]
+
+  @@map("medicines")
+}
+
+model Guardian {
+  id           Int    @id @default(autoincrement())
+  name         String
+  role         String
+  phone        String
+  relationship String
+
+  @@map("guardians")
+}
+
+model DoseLog {
+  id           String   @id @default(cuid())
+  patientId    String
+  medicineId   String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  medicine     Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  date         String
+  medicineName String
+  dose         String
+  tabletsCount String?
+  time         String
+  status       String
+  takenAt      String?
+  foodTiming   String?
+  notes        String?
+
+  @@map("dose_logs")
+}

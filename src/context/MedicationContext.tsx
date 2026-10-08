@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Patient, Medicine, Guardian, ReminderAlert, DateDoseLog, DayStatus, FoodTiming, Frequency } from '../types';
 import { INITIAL_GUARDIAN, INITIAL_PATIENTS, INITIAL_MEDICINES, INITIAL_HISTORICAL_LOGS } from '../data/initialData';
 import { soundManager } from '../utils/sound';
+import { api } from '../api/client';
 
 interface MedicationContextType {
   patients: Patient[];
@@ -22,6 +23,8 @@ interface MedicationContextType {
     pendingMedicines: number;
     missedMedicines: number;
   };
+  loading: boolean;
+  error: string | null;
   addPatient: (data: { name: string; age: number; phone: string; photoUrl?: string; notes?: string }) => void;
   selectPatient: (id: string) => void;
   addMedicine: (data: Omit<Medicine, 'id' | 'status' | 'reminderCount' | 'takenAt'>) => void;
@@ -135,12 +138,14 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   });
 
-  const [guardian] = useState<Guardian>(INITIAL_GUARDIAN);
-  const [simulatedTime, setSimulatedTimeState] = useState<string>('08:00 AM');
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [activeReminder, setActiveReminder] = useState<ReminderAlert | null>(null);
-  const [recentlyConfirmedMed, setRecentlyConfirmedMed] = useState<Medicine | null>(null);
-  const [twoMinuteCountdown, setTwoMinuteCountdown] = useState<number>(120);
+const [guardian, setGuardian] = useState<Guardian>(INITIAL_GUARDIAN);
+const [simulatedTime, setSimulatedTimeState] = useState<string>('08:00 AM');
+const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+const [activeReminder, setActiveReminder] = useState<ReminderAlert | null>(null);
+const [recentlyConfirmedMed, setRecentlyConfirmedMed] = useState<Medicine | null>(null);
+const [twoMinuteCountdown, setTwoMinuteCountdown] = useState<number>(120);
+const [loading, setLoading] = useState<boolean>(false);
+const [error, setError] = useState<string | null>(null);
 
   // Calendar view state
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>('2026-10-08');
@@ -171,6 +176,42 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       localStorage.setItem(STORAGE_KEYS.HISTORICAL_LOGS, JSON.stringify(historicalLogs));
     } catch {}
   }, [historicalLogs]);
+
+  // Load persisted data from the backend (database source of truth)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const [guardianData, patientsData, medicinesData, logsData] = await Promise.all([
+          api.getGuardian(),
+          api.getPatients(),
+          api.getMedicines(),
+          api.getLogs(),
+        ]);
+
+        if (cancelled) return;
+
+        if (guardianData) setGuardian(guardianData);
+        if (Array.isArray(patientsData)) setPatients(patientsData);
+        if (Array.isArray(medicinesData)) setMedicines(medicinesData);
+        if (Array.isArray(logsData)) setHistoricalLogs(logsData);
+        setError(null);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to connect to backend');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selectedPatient = useMemo(() => {
     return patients.find((p) => p.id === selectedPatientId) || patients[0];
@@ -381,6 +422,15 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           takenAt: takenTimestamp,
         });
       }
+
+      // 6. Persist confirmation to the backend
+      api
+        .confirmMedicine(medicineId, {
+          takenAt: takenTimestamp,
+          date: currentDateString,
+          patientId: med?.patientId,
+        })
+        .catch(() => {});
     },
     [medicines, simulatedTime, currentDateString, selectedPatientId]
   );
@@ -508,9 +558,8 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Add Patient
   const addPatient = useCallback(
-    (data: { name: string; age: number; phone: string; photoUrl?: string; notes?: string }) => {
-      const newPatient: Patient = {
-        id: `patient-${Date.now()}`,
+    async (data: { name: string; age: number; phone: string; photoUrl?: string; notes?: string }) => {
+      const payload = {
         name: data.name.trim(),
         age: Number(data.age),
         phone: data.phone.trim(),
@@ -518,8 +567,15 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         notes: data.notes || '',
         createdAt: currentDateString,
       };
-      setPatients((prev) => [...prev, newPatient]);
-      setSelectedPatientId(newPatient.id);
+      try {
+        const created = await api.createPatient(payload);
+        setPatients((prev) => [...prev, created]);
+        setSelectedPatientId(created.id);
+      } catch {
+        const fallback: Patient = { id: `patient-${Date.now()}`, ...payload };
+        setPatients((prev) => [...prev, fallback]);
+        setSelectedPatientId(fallback.id);
+      }
     },
     [currentDateString]
   );
@@ -532,15 +588,20 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Add Medicine
   const addMedicine = useCallback(
-    (data: Omit<Medicine, 'id' | 'status' | 'reminderCount' | 'takenAt'>) => {
-      const newMed: Medicine = {
+    async (data: Omit<Medicine, 'id' | 'status' | 'reminderCount' | 'takenAt'>) => {
+      const payload = {
         ...data,
-        id: `med-${Date.now()}`,
-        status: 'Pending',
+        status: 'Pending' as const,
         reminderCount: 0,
         startDate: data.startDate || currentDateString,
       };
-      setMedicines((prev) => [...prev, newMed]);
+      try {
+        const created = await api.createMedicine(payload);
+        setMedicines((prev) => [...prev, created]);
+      } catch {
+        const fallback: Medicine = { ...payload, id: `med-${Date.now()}`, takenAt: undefined };
+        setMedicines((prev) => [...prev, fallback]);
+      }
     },
     [currentDateString]
   );
@@ -550,12 +611,14 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setMedicines((prev) =>
       prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
     );
+    api.updateMedicine(id, updates).catch(() => {});
   }, []);
 
   // Delete Medicine
   const deleteMedicine = useCallback((id: string) => {
     setMedicines((prev) => prev.filter((m) => m.id !== id));
     setActiveReminder((prev) => (prev?.medicineId === id ? null : prev));
+    api.deleteMedicine(id).catch(() => {});
   }, []);
 
   // Reset to default sample data
@@ -577,6 +640,7 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       localStorage.removeItem(STORAGE_KEYS.SELECTED_PATIENT);
       localStorage.removeItem(STORAGE_KEYS.HISTORICAL_LOGS);
     } catch {}
+    api.resetData().catch(() => {});
   }, []);
 
   const value = {
@@ -592,6 +656,8 @@ export const MedicationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     soundEnabled,
     twoMinuteCountdown,
     stats,
+    loading,
+    error,
     addPatient,
     selectPatient,
     addMedicine,
