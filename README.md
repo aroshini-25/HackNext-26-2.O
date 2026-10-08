@@ -14,7 +14,10 @@ The main goal of CareSync is not only to remind seniors about their medicines, b
 
 Dual-dashboard medication management system connecting guardians and patients with scheduled reminders, instant confirmations, and real-time adherence tracking.
 
-Demo link : <video controls src="./Demo/CareSync-Demo.mp4" title="CareSync Demo"></video>
+ ## Demo Link
+
+Demo link :
+[Click Here to View Demo](https://drive.google.com/file/d/1YQc_vd4Z7L955M_ZRsR-odBJPMOTmCDz/view?usp=sharing)
 
 ## Stack
 
