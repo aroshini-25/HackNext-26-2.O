@@ -1,6 +1,20 @@
 # CareSync Medication Manager
 
+The CareSync – Senior-Centric Medication Management & Caregiver Support project is a smart healthcare support system developed to help senior citizens manage their daily medications in a simple, organized, and reliable way. Many elderly people take multiple medicines at different times with different dosages and instructions, which can lead to confusion, missed doses, or uncertainty about whether a medicine has already been taken. This becomes more difficult when they live alone or when caregivers are not always physically available.
+
+CareSync provides a senior-friendly medication management platform where users can view their complete medication schedule, understand medicine details, and receive timely voice-based reminders. The system also includes camera-assisted medicine scanning, which helps capture and identify medicine information and add it to the medication schedule.
+
+As an additional hardware-based voice assistance feature, Alexa is integrated with the system to provide hands-free medication reminders and guidance. This allows senior citizens to receive medication notifications through voice without depending completely on a mobile or computer screen. Alexa can announce the scheduled medicine, remind the senior about the medication time, and provide simple voice-based assistance.
+
+The system follows a complete medication support process: Understand → Remember → Act → Confirm → Monitor → Support. When a reminder is triggered, the senior can choose “I Took It,” “Remind Me Later,” or “I Need Help.” The selected action updates the medication status and helps identify when further support may be required.
+
+A dedicated caregiver dashboard provides visibility into the senior's medication activities, including taken, pending, and upcoming medicines. If a medicine remains unconfirmed or the senior requests assistance, the caregiver can receive an alert and provide timely support.
+
+The main goal of CareSync is not only to remind seniors about their medicines, but to create a closed-loop medication support system combining software, camera assistance, voice interaction, and Alexa-based hardware support. This helps reduce medication confusion, improve caregiver communication, and promote greater independence, confidence, safety, and continuity of care for senior citizens.
+
 Dual-dashboard medication management system connecting guardians and patients with scheduled reminders, instant confirmations, and real-time adherence tracking.
+
+Demo link : <video controls src="Demo/video.mp4" title="Title"></video>
 
 ## Stack
 
