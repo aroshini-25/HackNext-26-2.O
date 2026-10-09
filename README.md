@@ -44,8 +44,6 @@ Demo link :
 4. Start the frontend (port 3000, proxies `/api` to the backend):
    `npm run dev`
 
-Then open http://localhost:3000/
-
 ## Backend & Database
 
 - **API:** REST endpoints under `/api` — patients, medicines, guardian, dose logs, reset
